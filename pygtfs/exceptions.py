@@ -12,3 +12,8 @@ class PygtfsValidationError(PygtfsException, ValueError):
 class PygtfsConversionError(PygtfsException):
     """ Failed conversion, e.g. float(value) failed """
     pass
+
+class LoadFailedException(PygtfsException):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args)
+        self.data = kwargs

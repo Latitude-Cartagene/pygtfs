@@ -12,6 +12,7 @@ from .gtfs_entities import (Feed, Service, ServiceException, gtfs_required,
                             Translation, Stop, Trip, ShapePoint, _stop_translations,
                             _trip_shapes, gtfs_calendar, gtfs_all)
 from . import feed
+from .exceptions import LoadFailedException
 
 
 def list_feeds(schedule):
@@ -27,7 +28,6 @@ def delete_feed(schedule, feed_filename, interactive=False):
     delete_all = not interactive
     for matching_feed in feeds_with_name:
         if not delete_all:
-            print("Found feed ({0.feed_id}) named {0.feed_name} loaded on {0.feed_append_date}".format(matching_feed))
             ans = ""
             while ans not in ("K", "O", "A"):
                 ans = six.moves.input("(K)eep / (O)verwrite / overwrite (A)ll ? ").upper()
@@ -52,7 +52,6 @@ def append_feed(schedule, feed_filename, strip_fields=True,
 
     gtfs_tables = {}
     for gtfs_class in gtfs_all:
-        print('Loading GTFS data for %s:' % gtfs_class)
         gtfs_filename = gtfs_class.__tablename__ + '.txt'
 
         try:
@@ -65,7 +64,7 @@ def append_feed(schedule, feed_filename, strip_fields=True,
                 raise IOError('Error: could not find %s' % gtfs_filename)
 
     if len(set(gtfs_tables) & gtfs_calendar) == 0:
-        raise PygtfsException('Must have Calendar.txt or Calendar_dates.txt')
+        raise ValueError('Must have Calendar.txt or Calendar_dates.txt')
 
     # create new feed
     feed_entry = Feed(feed_name=fd.feed_name, feed_append_date=date.today())
@@ -86,20 +85,27 @@ def append_feed(schedule, feed_filename, strip_fields=True,
             try:
                 instance = gtfs_class(feed_id=feed_id, **record._asdict())
             except:
-                print("Failure while writing {0}".format(record))
-                raise
+                raise ValueError("Failed to write record {0}".format(record))
             schedule.session.add(instance)
             if i % chunk_size == 0 and i > 0:
                 schedule.session.flush()
                 sys.stdout.write('.')
                 sys.stdout.flush()
-        print('%d record%s read for %s.' % ((i+1), '' if i == 0 else 's',
-                                            gtfs_class))
-    schedule.session.flush()
-    schedule.session.commit()
+    try:
+        schedule.session.flush()
+        schedule.session.commit()
+    except:
+        import sys
+        import re
+        details = str(sys.exc_info()[1].args[0])
+        tup = re.match(r".*UNIQUE[^:]+:\s*([^,]+)\s*,\s*(.+)", details)
+        key = None
+        if tup:
+            key = tup[2]
+        raise LoadFailedException("Failed to insert into DB", kind="insert", key=key)
+        # python, why it gotta be like that?
     # load many to many relationships
     if Translation in gtfs_tables:
-        print('Mapping translations to stops')
         q = (schedule.session.query(
                 Stop.feed_id.label('stop_feed_id'),
                 Translation.feed_id.label('translation_feed_id'),
@@ -114,7 +120,6 @@ def append_feed(schedule, feed_filename, strip_fields=True,
                 ['stop_feed_id', 'translation_feed_id', 'stop_id', 'trans_id', 'lang'], q)
         schedule.session.execute(upd)
     if ShapePoint in gtfs_tables:
-        print('Mapping shapes to trips')
         q = (schedule.session.query(
                 Trip.feed_id.label('trip_feed_id'),
                 ShapePoint.feed_id.label('shape_feed_id'),
@@ -130,5 +135,4 @@ def append_feed(schedule, feed_filename, strip_fields=True,
         schedule.session.execute(upd)
     schedule.session.commit()
 
-    print('Complete.')
     return schedule

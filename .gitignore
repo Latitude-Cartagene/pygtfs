@@ -10,3 +10,8 @@ docs/_build
 .pydevproject
 .idea/*
 pygtfs/_version.py
+bin
+lib
+lib64
+pyvenv.cfg
+share

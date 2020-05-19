@@ -1,12 +1,15 @@
 from __future__ import (division, absolute_import, print_function,
                         unicode_literals)
 
+import sys
 import os
 import io
 import csv
 
 from collections import namedtuple
 from zipfile import ZipFile
+
+from .exceptions import LoadFailedException
 
 import six
 
@@ -18,7 +21,9 @@ def _row_stripper(row):
 class CSV(object):
     """A CSV file."""
 
-    def __init__(self, rows, feedtype='CSVTuple', columns=None):
+    def __init__(self, rows, feedtype='CSVTuple', columns=None, name=None):
+        self._rownum = 1
+        self._name = name
         header = list(six.next(rows))
         # deal with annoying unnecessary boms on utf-8
         header[0] = header[0].lstrip("\ufeff")
@@ -39,9 +44,16 @@ class CSV(object):
         return self
 
     def __next__(self):
-        n = tuple(six.next(self.rows))
-        if n:
-            return self.Tuple._make(self._pick_columns(n))
+        self._rownum += 1
+        try:
+            n = tuple(six.next(self.rows))
+            if n:
+                return self.Tuple._make(self._pick_columns(n))
+        except StopIteration:
+            raise
+        except IndexError:
+            raise LoadFailedException("Wrong number of columns in csv", kind="parse", filename=self._name, row=self._rownum)
+
     next = __next__  # python 2 compatible
 
     def _pick_columns(self, row):
@@ -107,7 +119,7 @@ class Feed(object):
             rows = ((x if x else None for x in row) for row in rows)
         feedtype = filename.rsplit('/')[-1].rsplit('.')[0].title().replace('_',
                                                                            '')
-        return CSV(feedtype=feedtype, rows=rows, columns=columns)
+        return CSV(feedtype=feedtype, rows=rows, columns=columns, name=filename)
 
 
 def derive_feed_name(filename):
