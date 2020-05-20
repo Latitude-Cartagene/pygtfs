@@ -107,7 +107,7 @@ class Feed(object):
         else:
             text_file_handle = open(os.path.join(self.filename, filename), "r",
                                     encoding="utf-8")
-        return csv.reader(text_file_handle)
+        return csv.reader(text_file_handle, skipinitialspace=True)
 
     def read_table(self, filename, columns):
         if self.strip_fields:
