@@ -77,7 +77,9 @@ def append_feed(schedule, feed_filename, strip_fields=True,
         gtfs_table = gtfs_tables[gtfs_class]
 
 
+        lineno = 1
         for i, record in enumerate(gtfs_table):
+            lineno += 1
             if not record:
                 # Empty row.
                 continue
@@ -85,7 +87,7 @@ def append_feed(schedule, feed_filename, strip_fields=True,
             try:
                 instance = gtfs_class(feed_id=feed_id, **record._asdict())
             except:
-                raise ValueError("Failed to write record {0}".format(record))
+                raise LoadFailedException("Failed to write record", record=str(record), cls=str(gtfs_class), lineno=lineno)
             schedule.session.add(instance)
             if i % chunk_size == 0 and i > 0:
                 try:
