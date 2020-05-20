@@ -100,9 +100,6 @@ def append_feed(schedule, feed_filename, strip_fields=True,
                         key = tup[2]
                     raise LoadFailedException("Failed to insert into DB", kind="insert", key=key)
                     # python, why it gotta be like that?
-                import sys
-                sys.stdout.write('.')
-                sys.stdout.flush()
     try:
         schedule.session.flush()
         schedule.session.commit()
