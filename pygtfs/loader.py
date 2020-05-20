@@ -88,7 +88,19 @@ def append_feed(schedule, feed_filename, strip_fields=True,
                 raise ValueError("Failed to write record {0}".format(record))
             schedule.session.add(instance)
             if i % chunk_size == 0 and i > 0:
-                schedule.session.flush()
+                try:
+                    schedule.session.flush()
+                except:
+                    import sys
+                    import re
+                    details = str(sys.exc_info()[1].args[0])
+                    tup = re.match(r".*UNIQUE[^:]+:\s*([^,]+)\s*,\s*(.+)", details)
+                    key = None
+                    if tup:
+                        key = tup[2]
+                    raise LoadFailedException("Failed to insert into DB", kind="insert", key=key)
+                    # python, why it gotta be like that?
+                import sys
                 sys.stdout.write('.')
                 sys.stdout.flush()
     try:
