@@ -85,7 +85,7 @@ def _validate_float_none(*field_names):
     def is_float_none(self, key, value):
         try:
             return float(value)
-        except ValueError:
+        except (TypeError, ValueError):
             if value is None or value == "":
                 return None
             else:
